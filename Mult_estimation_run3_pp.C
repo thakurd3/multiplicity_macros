@@ -21,11 +21,12 @@ void SetLegend(TLegend *);
 TH1D* projectHistogram(TH2F *, double , double);
 TH1D* projectHistogramX(TH2F *, double , double);
 TProfile* projectProfile(TH2F *, double , double);
+TProfile* projectProfileY(TH2F *, double , double);
 
 const int nMultBins = 6;
-double minMultBins[] = {0,10,20,30,40,50};
-double maxMultBins[] = {10,20,30,40,50,120};
-double nMultBin[] = {0,10,20,30,40,50,120};
+double minMultBins[] = {0,5,10,20,30,40};
+double maxMultBins[] = {5,10,20,30,40,80};
+double nMultBin[] = {0,5,10,20,30,40,80};
 
 void Mult_estimation_run3_pp()
 {
@@ -40,7 +41,7 @@ void Mult_estimation_run3_pp()
         return;
     }
 
-   TH2F* hist_VtxZ_NcontribReal = (TH2F*) listMultData->FindObject("VtxZ_VtxNContribReal");
+   TH2F* hist_VtxZ_NcontribReal = (TH2F*) listMultData->FindObject("VtxZ_VtxNcontribReal");
    //TCanvas *cData = new TCanvas("cData", "Response Matrix", 800, 600);
    //TH1F *histMultData = (TH1F*) projectHistogram(hist_VtxZ_NcontribReal,0,100);
    //histMultData->Draw();
@@ -86,14 +87,14 @@ void Mult_estimation_run3_pp()
    TProfile *profMult[nMultBins];
    TF1 *fitFuncMult[nMultBins];
     for (int imult = 0;imult < nMultBins;imult++) {
-            histMultData[imult] = (TH1D*) projectHistogramX(hist_VtxZ_NcontribReal, minMultBins[imult], maxMultBins[imult]);
+            histMultData[imult] = (TH1D*) projectProfileY(hist_VtxZ_NcontribReal, minMultBins[imult], maxMultBins[imult]);
 	    histMultData[imult] -> SetName(Form("histMultData_%0.1f_%0.1f", minMultBins[imult], maxMultBins[imult]));
             histMultData[imult] ->SetMarkerStyle(20);
 	    histMultData[imult] ->SetMarkerSize(0.5);
 	    histMultData[imult] ->SetMarkerColor(colors[imult]);
 
-	    double mNTrk = histMultData[imult]->GetMean();
-	    double mNTrk_er = histMultData[imult]->GetMeanError();
+	    double mNTrk = histMultData[imult]->GetMean(2);
+	    double mNTrk_er = histMultData[imult]->GetMeanError(2);
 
 	    // Store the results in vectors
 	    meanNTrk[imult] = mNTrk;
@@ -180,11 +181,11 @@ void Mult_estimation_run3_pp()
     for (int i = 0; i < nMultBins; ++i) {
 	hist_mNch->SetBinContent(i+1,meanNch[i]);
         hist_mNch->SetBinError(i+1,meanNch_err[i]);
-        std::cout << " Nch Interval " << minMultBins[i]<<"-"<< maxMultBins[i] << ": <Nch> = " << meanNch[i] << ", <Nch> Error = " << meanNch_err[i] << std::endl;
+        std::cout << " <Nch> " << minMultBins[i]<<"-"<< maxMultBins[i] << " : value " << meanNch[i] << ", Error = " << meanNch_err[i] << std::endl;
     }
 
     // Output the mean Ntrk from data and error values
-    TH1F *hist_mTrk = new TH1F("hist_mTrk", "Ntrk vs alpha*<NTrk>", nBins, nMultBin);
+    TH1F *hist_mTrk = new TH1F("hist_mTrk", "<Nch> vs alpha*<NTrk>", nBins, nMultBin);
     hist_mTrk->GetXaxis()->SetTitle(" N_{Trk} ");
     hist_mTrk->GetYaxis()->SetTitle(" #alpha #time <N_{Trk}> / <N_{ch}>");
     hist_mTrk ->SetMarkerStyle(20);
@@ -194,9 +195,18 @@ void Mult_estimation_run3_pp()
     for (int i = 0; i < nMultBins; ++i) {
 	hist_mTrk->SetBinContent(i+1,slopes[i]*meanNTrk[i]);
         hist_mTrk->SetBinError(i+1,slopes[i]*meanNTrk_err[i]);
-        std::cout << " NTrk * alpha : " << minMultBins[i]<<"-"<< maxMultBins[i] << ": <Nch> = " << slopes[i]*meanNTrk[i] << ", <NTrk> Error = " << slopes[i]*meanNTrk_err[i] << std::endl;
+	//std::cout << " NTrk Interval " << minMultBins[i]<<"-"<< maxMultBins[i] << ": <NTrkData> = " << meanNTrk[i] << ", <NTrkData> Error = " << meanNTrk_err[i] << std::endl;
+        std::cout << " NTrk * alpha : " << minMultBins[i]<<"-"<< maxMultBins[i] << " value " << slopes[i]*meanNTrk[i] << ", Error = " << slopes[i]*meanNTrk_err[i] << std::endl;
     }
 
+
+    TCanvas *c3 = new TCanvas("c3", "<Ntrk> profile in mult bins", 800, 600);
+    c3->Divide(nMultBins,1);
+    for (int i = 0; i < nMultBins; ++i) {
+      histMultData[i]->SetTitle(Form("Mult_%0.1f_%0.1f", minMultBins[i], maxMultBins[i]));
+    c3->cd(i+1);
+    histMultData[i]->Draw("p");
+    }
 
     
     TCanvas *cNch = new TCanvas("cNch", "alpha and <Nch>",220,130,1188,398);
@@ -208,6 +218,7 @@ void Mult_estimation_run3_pp()
     cNch->cd(3);
     hist_mTrk->Draw("p");
     hist_mNch->Draw("psame");
+    
     
      
 }
@@ -241,6 +252,18 @@ TProfile* projectProfile(TH2F *hist2D, double minMultRange, double maxMultRange)
     
     Printf("minMultBin = %0.1f, maxMultBin = %0.1f", minMultBin, maxMultBin);
     hist2D -> GetXaxis() -> SetRange(minMultBin, maxMultBin);
+
+    TProfile *histProj = (TProfile*) hist2D -> ProfileX(Form("histProj__%0.1f_%0.1f", minMultRange, maxMultRange),minMultBin, maxMultBin);
+    return histProj;
+}
+
+
+TProfile* projectProfileY(TH2F *hist2D, double minMultRange, double maxMultRange) {
+  double minMultBin = hist2D -> GetYaxis() -> FindBin(minMultRange);
+    double maxMultBin = hist2D -> GetYaxis() -> FindBin(maxMultRange - 0.00001);
+    
+    Printf("minMultBin = %0.1f, maxMultBin = %0.1f", minMultBin, maxMultBin);
+    hist2D -> GetYaxis() -> SetRange(minMultBin, maxMultBin);
 
     TProfile *histProj = (TProfile*) hist2D -> ProfileX(Form("histProj__%0.1f_%0.1f", minMultRange, maxMultRange),minMultBin, maxMultBin);
     return histProj;
